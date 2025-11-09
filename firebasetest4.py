@@ -1,40 +1,39 @@
-import mysql.connector
+import firebase_admin
+from firebase_admin import credentials, firestore
 import time
 
-DB_CONFIG = {
-    "host": "127.0.0.1",   
-    "user": "root",
-    "password": "root",
-    "database": "testdb"
-}
+ 
+cred = credentials.Certificate("firebase-key.json")
+firebase_admin.initialize_app(cred)
+db = firestore.client()
 
 def run_test(record_count):
-    conn = mysql.connector.connect(**DB_CONFIG)
-    cursor = conn.cursor()
-    cursor.execute("CREATE TABLE IF NOT EXISTS scalability_test (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255), age INT)")
-    conn.commit()
-
+    collection_name = "scalability_test"
     print(f"\n🧪 Inserting {record_count} records...")
     start_time = time.time()
 
+  
+    batch = db.batch()
     for i in range(record_count):
-        cursor.execute("INSERT INTO scalability_test (name, age) VALUES (%s, %s)", (f"User_{i}", i % 100))
-    conn.commit()
-
+        doc_ref = db.collection(collection_name).document(f"user_{i}")
+        batch.set(doc_ref, {"name": f"User_{i}", "age": i % 100})
+        
+        if (i + 1) % 500 == 0:
+            batch.commit()
+            batch = db.batch()
+    batch.commit()  
     insert_time = time.time() - start_time
     print(f"✅ Inserted {record_count} records in {insert_time:.2f}s")
 
+    
     print("📖 Reading records...")
     start_time = time.time()
-    cursor.execute("SELECT * FROM scalability_test")
-    records = cursor.fetchall()
+    docs = list(db.collection(collection_name).stream())
     read_time = time.time() - start_time
-    print(f"📊 Read {len(records)} records in {read_time:.2f}s")
-
-    cursor.close()
-    conn.close()
+    print(f"📊 Read {len(docs)} records in {read_time:.2f}s")
 
     return insert_time, read_time
+
 
 if __name__ == "__main__":
     total_records = 0
