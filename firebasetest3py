@@ -16,7 +16,7 @@ def run_test(record_count):
     batch = db.batch()
     for i in range(record_count):
         doc_ref = db.collection(collection_name).document(f"user_{i}")
-        batch.set(doc_ref, {"name": f"User_{i}", "age": i % 100})
+        batch.set(doc_ref, {"ph1": f"User_{i}", "ph2": i % 100})
         
         if (i + 1) % 500 == 0:
             batch.commit()
